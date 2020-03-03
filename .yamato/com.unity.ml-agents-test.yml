@@ -35,6 +35,10 @@ test_{{ platform.name }}_{{ editor.version }}:
   dependencies:
     - .yamato/com.unity.ml-agents-pack.yml#pack
   triggers:
+    expression: |
+      pull_request.(target eq "master" AND
+      NOT draft AND push.changes.any match "com.unity.ml-agents/**")
+      OR push.changes eq ".yamato/com.unity.ml-agents-test.yml"
     changes:
       only:
         - "com.unity.ml-agents/**"
