@@ -38,7 +38,7 @@ test_{{ platform.name }}_{{ editor.version }}:
     expression: |
       pull_request.(target eq "master" AND
       NOT draft AND push.changes.any match "com.unity.ml-agents/**")
-      OR push.changes eq ".yamato/com.unity.ml-agents-test.yml"
+      OR pull_request.push.changes match ".yamato/com.unity.ml-agents-test.yml"
     changes:
       only:
         - "com.unity.ml-agents/**"
