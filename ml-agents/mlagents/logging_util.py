@@ -7,4 +7,5 @@ def create_logger(name, log_level):
 
     logging.basicConfig(level=log_level, format=log_format, datefmt=date_format)
     logger = logging.getLogger(name=name)
+    logger.setLevel(log_level)
     return logger
