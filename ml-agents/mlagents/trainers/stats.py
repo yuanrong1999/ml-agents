@@ -146,6 +146,8 @@ class ConsoleWriter(StatsWriter):
 
 
 class TensorboardWriter(StatsWriter):
+    _instance = None
+
     def __init__(self, base_dir: str):
         """
         A StatsWriter that writes to a Tensorboard summary.
@@ -154,6 +156,11 @@ class TensorboardWriter(StatsWriter):
         """
         self.summary_writers: Dict[str, tf.summary.FileWriter] = {}
         self.base_dir: str = base_dir
+        TensorboardWriter._instance = self
+
+    @staticmethod
+    def get_instance() -> "TensorboardWriter":
+        return TensorboardWriter._instance
 
     def write_stats(
         self, category: str, values: Dict[str, StatsSummary], step: int

@@ -93,6 +93,7 @@ def worker(
     shared_float_properties = FloatPropertiesChannel()
     engine_configuration_channel = EngineConfigurationChannel()
     engine_configuration_channel.set_configuration(engine_configuration)
+    # MLA-763 create Tensorboard channel and pass to env_factory
     env: BaseEnv = env_factory(
         worker_id, [shared_float_properties, engine_configuration_channel]
     )
@@ -131,6 +132,7 @@ def worker(
                 # TODO get gauges from the workers and merge them in the main process too.
                 step_response = StepResponse(all_step_result, get_timer_root())
                 step_queue.put(EnvironmentResponse("step", worker_id, step_response))
+                # MLA-763 - add a "tensorboard" EnvironmentResponse in the step queue
                 reset_timers()
             elif cmd.name == "external_brains":
                 _send_response("external_brains", external_brains())
@@ -226,6 +228,11 @@ class SubprocessEnvManager(EnvManager):
                         raise UnityCommunicationException(
                             "At least one of the environments has closed."
                         )
+                    # MLA-763 handle Tensorboard "steps" here
+                    # tb_writer = TensorboardWriter.get_instance()
+                    # if tb_writer:
+                    #  tb_writer.write_stats(...)
+                    # TODO need the current step?!
                     self.env_workers[step.worker_id].waiting = False
                     if step.worker_id not in step_workers:
                         worker_steps.append(step)
