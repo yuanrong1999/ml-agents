@@ -169,7 +169,7 @@ class SubprocessEnvManager(EnvManager):
     ):
         super().__init__()
         self.env_workers: List[UnityEnvWorker] = []
-        self.step_queue: Queue = Queue()
+        self.step_queue: Queue = Queue(maxsize=n_env)
         for worker_idx in range(n_env):
             self.env_workers.append(
                 self.create_worker(
