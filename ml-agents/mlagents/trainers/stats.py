@@ -154,7 +154,6 @@ class TensorboardWriter(StatsWriter):
         """
         self.summary_writers: Dict[str, tf.summary.FileWriter] = {}
         self.base_dir: str = base_dir
-        TensorboardWriter._instance = self
 
     def write_stats(
         self, category: str, values: Dict[str, StatsSummary], step: int

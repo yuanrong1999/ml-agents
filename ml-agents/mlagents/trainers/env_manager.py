@@ -108,4 +108,6 @@ class EnvManager(ABC):
                         name_behavior_id, ActionInfo.empty()
                     ),
                 )
+                # MLA-763 - add add_environment_stats() and call here
+                # MLA-763 - handle other stats that don't have an existing name_behavior_id here?
         return len(step_infos)

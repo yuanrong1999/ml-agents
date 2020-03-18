@@ -262,3 +262,8 @@ class AgentManager(AgentProcessor):
             self.behavior_id
         )
         self.publish_trajectory_queue(self.trajectory_queue)
+
+    def add_environment_stats(self, env_stats: Dict[str, float]) -> None:
+        for stat_name, val in env_stats.items():
+            full_stat = f"Environment/{stat_name}"
+            self.stats_reporter.add_stat(full_stat, val)

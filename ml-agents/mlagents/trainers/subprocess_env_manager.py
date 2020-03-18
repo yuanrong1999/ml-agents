@@ -130,9 +130,9 @@ def worker(
                 # Note that we could randomly return timers a fraction of the time if we wanted to reduce
                 # the data transferred.
                 # TODO get gauges from the workers and merge them in the main process too.
+                # MLA-763 - add stats to StepResponse and pass through EnvironmentResponse
                 step_response = StepResponse(all_step_result, get_timer_root())
                 step_queue.put(EnvironmentResponse("step", worker_id, step_response))
-                # MLA-763 - add a "tensorboard" EnvironmentResponse in the step queue
                 reset_timers()
             elif cmd.name == "external_brains":
                 _send_response("external_brains", external_brains())
@@ -228,11 +228,6 @@ class SubprocessEnvManager(EnvManager):
                         raise UnityCommunicationException(
                             "At least one of the environments has closed."
                         )
-                    # MLA-763 handle Tensorboard "steps" here
-                    # tb_writer = TensorboardWriter.get_instance()
-                    # if tb_writer:
-                    #  tb_writer.write_stats(...)
-                    # TODO need the current step?!
                     self.env_workers[step.worker_id].waiting = False
                     if step.worker_id not in step_workers:
                         worker_steps.append(step)
