@@ -27,9 +27,12 @@ from mlagents_envs.environment import UnityEnvironment
 from mlagents.trainers.sampler_class import SamplerManager
 from mlagents.trainers.exception import SamplerException
 from mlagents_envs.base_env import BaseEnv
-from mlagents.trainers.subprocess_env_manager import SubprocessEnvManager
+from mlagents.trainers.simple_env_manager import SimpleEnvManager
 from mlagents_envs.side_channel.side_channel import SideChannel
-from mlagents_envs.side_channel.engine_configuration_channel import EngineConfig
+from mlagents_envs.side_channel.engine_configuration_channel import (
+    EngineConfig,
+    EngineConfigurationChannel,
+)
 from mlagents_envs.exception import UnityEnvironmentException
 from mlagents_envs.timers import hierarchical_timer, get_timer_tree
 from mlagents.logging_util import create_logger
@@ -294,7 +297,10 @@ def run_training(run_seed: int, options: RunOptions) -> None:
             options.time_scale,
             options.target_frame_rate,
         )
-        env_manager = SubprocessEnvManager(env_factory, engine_config, options.num_envs)
+        engine_configuration_channel = EngineConfigurationChannel()
+        engine_configuration_channel.set_configuration(engine_config)
+        env = env_factory(0, [engine_configuration_channel])
+        env_manager = SimpleEnvManager(env, engine_config)
         maybe_meta_curriculum = try_create_meta_curriculum(
             options.curriculum_config, env_manager, options.lesson
         )
@@ -369,7 +375,7 @@ def create_sampler_manager(sampler_config, run_seed=None):
 
 
 def try_create_meta_curriculum(
-    curriculum_config: Optional[Dict], env: SubprocessEnvManager, lesson: int
+    curriculum_config: Optional[Dict], env: SimpleEnvManager, lesson: int
 ) -> Optional[MetaCurriculum]:
     if curriculum_config is None:
         return None
