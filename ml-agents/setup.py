@@ -65,6 +65,7 @@ setup(
         "pyyaml",
         "tensorflow>=1.7,<2.1",
         'pypiwin32==223;platform_system=="Windows"',
+        "pympler",
     ],
     python_requires=">=3.6.1",
     entry_points={

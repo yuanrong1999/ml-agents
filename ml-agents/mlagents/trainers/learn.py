@@ -36,6 +36,8 @@ from mlagents_envs.side_channel.engine_configuration_channel import (
 from mlagents_envs.exception import UnityEnvironmentException
 from mlagents_envs.timers import hierarchical_timer, get_timer_tree
 from mlagents.logging_util import create_logger
+from pympler import muppy, summary
+import tracemalloc
 
 
 def _create_parser():
@@ -253,6 +255,7 @@ def run_training(run_seed: int, options: RunOptions) -> None:
     :param run_seed: Random seed used for training.
     :param run_options: Command line arguments for training.
     """
+    tracemalloc.start()
     with hierarchical_timer("run_training.setup"):
         # Recognize and use docker volume if one is passed as an argument
         if not options.docker_target_name:
@@ -337,6 +340,18 @@ def run_training(run_seed: int, options: RunOptions) -> None:
     try:
         tc.start_learning(env_manager)
     finally:
+        # Tracemalloc
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics("lineno")
+
+        print("[ Top 10 ]")
+        for stat in top_stats[:10]:
+            print(stat)
+        # Muppy
+        all_objects = muppy.get_objects()
+        sum1 = summary.summarize(all_objects)
+        # Prints out a summary of the large objects
+        summary.print_(sum1)
         env_manager.close()
         write_timing_tree(summaries_dir, options.run_id)
 
