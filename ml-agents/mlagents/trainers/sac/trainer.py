@@ -83,12 +83,16 @@ class SACTrainer(RLTrainer):
         self.optimizer: SACOptimizer = None  # type: ignore
 
         self.step = 0
+        self.last_process_step_count = 0
 
-        # Don't count buffer_init_steps in steps_per_update ratio, but also don't divide-by-0
-        self.update_steps = max(1, self.trainer_parameters["buffer_init_steps"])
-        self.reward_signal_update_steps = max(
-            1, self.trainer_parameters["buffer_init_steps"]
-        )
+        # State variables to maintain step/update ratio
+        self.approx_steps_between_update_call = 0
+        self.approx_updates_per_advance = 1.0
+        self.approx_advance_per_process = 0
+        self.approx_reward_updates_per_advance = 1.0
+
+        self.update_steps = 0.0
+        self.reward_signal_update_steps = 0.0
 
         self.steps_per_update = (
             trainer_parameters["steps_per_update"]
@@ -226,8 +230,33 @@ class SACTrainer(RLTrainer):
         Update the SAC policy and reward signals until the steps_per_update ratio
         is met.
         """
+        # Note: this is to maintain aesthetics. Since self.step is incremented in large jumps,
+        # calling the appropriate number of updates when step changes would result in the environment
+        # freezing for a while before continuing onwards.
+        # By storing the approximate needed steps per step increment, we can conduct some of the updates
+        # in the intermediate steps, and only catch up if needed.
+        approx_steps_between_process = self.step - self.last_process_step_count
+        self.approx_advance_per_process += 1
+        if approx_steps_between_process > 0:
+            self.approx_updates_per_advance = self._compute_updates_per_advance(
+                self.steps_per_update, approx_steps_between_process
+            )
+            self.approx_reward_updates_per_advance = self._compute_updates_per_advance(
+                self.reward_signal_steps_per_update, approx_steps_between_process
+            )
+            self.approx_advance_per_process = 0
+            self.last_process_step_count = self.step
         self.update_sac_policy()
         self.update_reward_signals()
+
+    def _compute_updates_per_advance(
+        self, steps_per_update: float, steps_between_process: int
+    ) -> float:
+        approx_updates_between_process = steps_between_process / steps_per_update
+        approx_updates_per_advance = (
+            approx_updates_between_process / self.approx_advance_per_process
+        )
+        return approx_updates_per_advance
 
     def create_policy(self, brain_parameters: BrainParameters) -> TFPolicy:
         policy = NNPolicy(
@@ -271,7 +300,12 @@ class SACTrainer(RLTrainer):
         )
 
         batch_update_stats: Dict[str, list] = defaultdict(list)
-        while self.step / self.update_steps > self.steps_per_update:
+        if self._is_ready_update():
+            self.update_steps += self.approx_updates_per_advance
+        self.stats_reporter.add_stat(
+            "Policy/Updates Per Advance", self.approx_updates_per_advance
+        )
+        while self.update_steps > 1:
             logger.debug("Updating SAC policy at step {}".format(self.step))
             buffer = self.update_buffer
             if (
@@ -292,7 +326,7 @@ class SACTrainer(RLTrainer):
                 for stat_name, value in update_stats.items():
                     batch_update_stats[stat_name].append(value)
 
-            self.update_steps += 1
+            self.update_steps -= 1
 
         # Truncate update buffer if neccessary. Truncate more than we need to to avoid truncating
         # a large buffer at each update.
@@ -324,7 +358,10 @@ class SACTrainer(RLTrainer):
             int(self.trainer_parameters["batch_size"] / self.policy.sequence_length), 1
         )
         batch_update_stats: Dict[str, list] = defaultdict(list)
-        while self.step / self.reward_signal_update_steps > self.steps_per_update:
+
+        if self._is_ready_update():
+            self.reward_signal_update_steps += self.approx_reward_updates_per_advance
+        while self.reward_signal_update_steps > 1:
             # Get minibatches for reward signal update if needed
             reward_signal_minibatches = {}
             for name, signal in self.optimizer.reward_signals.items():
@@ -340,7 +377,7 @@ class SACTrainer(RLTrainer):
             )
             for stat_name, value in update_stats.items():
                 batch_update_stats[stat_name].append(value)
-            self.reward_signal_update_steps += 1
+            self.reward_signal_update_steps -= 1
 
         for stat, stat_list in batch_update_stats.items():
             self._stats_reporter.add_stat(stat, np.mean(stat_list))
